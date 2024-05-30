@@ -10,6 +10,28 @@ import json
 import pandas as pd
 from shapely.geometry import Point
 
+def firts_twenty(url):
+    response = requests.get(url)
+    data = []
+    if response.status_code == 200:
+        soup = BeautifulSoup(response.content, 'lxml')
+        element =soup.find("script", {"nonce": True})
+        if element:
+            element_string=str(element)
+            matches = re.finditer(r'{(.*?)}', element_string)
+            for match in matches:
+                json_object = match.group(1)
+                if 'area' in json_object:
+                    guid_match = re.search(r'guid:"(.*?)"', json_object)
+                    if guid_match:
+                        guid = guid_match.group(1)
+                        data.append({'guid': guid})
+        else:
+            print("Элемент не найден")
+    else:
+        print("Error:", response.status_code)
+    df = pd.DataFrame(data)
+    df.to_csv('csv/firts_twenty.csv', index=False)
 
 #получение HAR
 def get_HAR():
@@ -168,17 +190,58 @@ def move_number_to_front(file_path):
         return s
     df['name'] = df['name'].apply(_move_number_to_front)
     df.to_csv(file_path, index=False)
+def extract_organization(row):
+    prefix = 'Организация, проводившая бурение: '
+    if isinstance(row, str) and prefix in row:
+        match = re.search(r'Организация, проводившая бурение: (.*?)(\n|$)', row)
+        if match:
+            return match.group(1).strip()
+    return None
+def remove_organization_text(row):
+    prefix = 'Организация, проводившая бурение: '
+    if isinstance(row, str) and prefix in row:
+        return re.sub(r'Организация, проводившая бурение: .*?(\n|$)', '', row).strip()
+    return row
+def org_file(file_path):
+    df = pd.read_csv(file_path)
+    if 'Организация' not in df.columns:
+        df.insert(11, 'Организация', df['Информация по бурению'].apply(extract_organization))
+        df['Информация по бурению'] = df['Информация по бурению'].apply(remove_organization_text)
+    df.to_csv(file_path, index=False)
+def extract_actual_horizon(row):
+    prefix = 'Фактический горизонт: '
+    if isinstance(row, str) and prefix in row:
+        match = re.search(r'Фактический горизонт: (.*?)(\n|$)', row)
+        if match:
+            return match.group(1).strip()
+    return None
+def remove_actual_horizon(row):
+    prefix = 'Фактический горизонт: '
+    if isinstance(row, str) and prefix in row:
+        return re.sub(r'Фактический горизонт: .*?(\n|$)', '', row).strip()
+    return row
+def horizon_file(file_path):
+    df = pd.read_csv(file_path)
+    if 'Фактический горизонт' not in df.columns:
+        df.insert(16, 'Фактический горизонт', df['Геологические задачи и результаты'].apply(extract_actual_horizon))
+        df['Геологические задачи и результаты'] = df['Геологические задачи и результаты'].apply(remove_actual_horizon)
+    df.to_csv(file_path, index=False)
 
 base_url = "https://kern.vnigni.ru/well/catalog/"
 # get_HAR()
-csv_file_path = 'csv/vnigni_guid.csv'
-extract_text_from_har_and_save_to_csv('HAR/kern.vnigni.ru.har', csv_file_path)
-df = pd.read_csv(csv_file_path)
-output_file = 'csv/vnigni.csv'
-# parse_all(df, base_url, output_file)
-combine_all('csv/vnigri_perviy_20.csv','csv/vnigni.csv', 'csv/vnigni__full.csv')
-points('csv/vnigni__full.csv','csv/vnigni__full_points.csv')
-depth('csv/vnigni__full_points.csv')
-move_number_to_front('csv/vnigni__full_points.csv')
+# csv_file_path = 'csv/vnigni_guid.csv'
+# extract_text_from_har_and_save_to_csv('HAR/kern.vnigni.ru.har', csv_file_path)
+# df = pd.read_csv(csv_file_path)
+# output_file = 'csv/vnigni.csv'
+# # parse_all(df, base_url, output_file)
+#firts_twenty(base_url)
+# combine_all('csv/firts_twenty.csv','csv/vnigni.csv', 'csv/vnigni__full.csv')
+# points('csv/vnigni__full.csv','csv/vnigni__full_points.csv')
+# depth('csv/vnigni__full_points.csv')
+# move_number_to_front('csv/vnigni__full_points.csv')
+# df = pd.read_csv('csv/vnigni__full_points.csv')
+org_file('csv/vnigni__full_4.csv')
+horizon_file('csv/vnigni__full_4.csv')
+
 
 
