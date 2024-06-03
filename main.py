@@ -1,14 +1,14 @@
-from bs4 import BeautifulSoup
-import requests
-from selenium.webdriver.chrome.service import Service
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-import time
+# from bs4 import BeautifulSoup
+# import requests
+# from selenium.webdriver.chrome.service import Service
+# from selenium import webdriver
+# from selenium.webdriver.common.by import By
+# import time
 import re
-import pyautogui
-import json
+# import pyautogui
+# import json
 import pandas as pd
-from shapely.geometry import Point
+# from shapely.geometry import Point
 
 def firts_twenty(url):
     response = requests.get(url)
@@ -227,6 +227,26 @@ def horizon_file(file_path):
         df['Геологические задачи и результаты'] = df['Геологические задачи и результаты'].apply(remove_actual_horizon)
     df.to_csv(file_path, index=False)
 
+def extract_report(row):
+    prefix = '; '
+    if isinstance(row, str) and prefix in row:
+        match = re.search(r'; (отчет|Фед\. реестр)(.*?)(\n|$)', row)
+        if match:
+            return match.group(1).strip() + match.group(2).strip()
+    return None
+def remove_report(row):
+    prefix = '; '
+    if isinstance(row, str) and prefix in row:
+        parts = row.split(prefix, 1)
+        return parts[0].strip()
+    return row
+def report_file(file_path, save_path):
+    df = pd.read_csv(file_path)
+    if 'Отчеты' not in df.columns:
+        df.insert(17, 'Отчеты', df['Фактический горизонт'].apply(extract_report))
+        df['Фактический горизонт'] = df['Фактический горизонт'].apply(remove_report)
+    df.to_csv(save_path, index=False)
+
 base_url = "https://kern.vnigni.ru/well/catalog/"
 # get_HAR()
 # csv_file_path = 'csv/vnigni_guid.csv'
@@ -240,8 +260,9 @@ base_url = "https://kern.vnigni.ru/well/catalog/"
 # depth('csv/vnigni__full_points.csv')
 # move_number_to_front('csv/vnigni__full_points.csv')
 # df = pd.read_csv('csv/vnigni__full_points.csv')
-org_file('csv/vnigni__full_4.csv')
-horizon_file('csv/vnigni__full_4.csv')
+# org_file('csv/vnigni__full_4.csv')
+# horizon_file('csv/vnigni__full_4.csv')
+report_file('csv/vnigni__full_4.csv','csv/vnigni__full_5.csv')
 
 
 
