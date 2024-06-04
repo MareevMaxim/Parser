@@ -8,6 +8,8 @@ import re
 # import pyautogui
 # import json
 import pandas as pd
+
+
 # from shapely.geometry import Point
 
 def firts_twenty(url):
@@ -15,9 +17,9 @@ def firts_twenty(url):
     data = []
     if response.status_code == 200:
         soup = BeautifulSoup(response.content, 'lxml')
-        element =soup.find("script", {"nonce": True})
+        element = soup.find("script", {"nonce": True})
         if element:
-            element_string=str(element)
+            element_string = str(element)
             matches = re.finditer(r'{(.*?)}', element_string)
             for match in matches:
                 json_object = match.group(1)
@@ -33,6 +35,7 @@ def firts_twenty(url):
     df = pd.DataFrame(data)
     df.to_csv('csv/firts_twenty.csv', index=False)
 
+
 #получение HAR
 def get_HAR():
     driver = webdriver.Edge(service=Service("drivers/msedgedriver.exe"))
@@ -41,7 +44,7 @@ def get_HAR():
     driver.maximize_window()
     x = 450
     y = 200
-    pyautogui.moveTo(x, y) # тыкаем в точку
+    pyautogui.moveTo(x, y)  # тыкаем в точку
     pyautogui.click()
     time.sleep(5)
     pyautogui.press('pagedown')
@@ -126,7 +129,7 @@ def parse_page(url, data_pd):
                 header = panel.find('h3').text.strip()
                 data_toggle = pd.DataFrame({header: [None]})
 
-                 # Находим все элементы div с классом "mb-3" внутри текущего toggle panel
+                # Находим все элементы div с классом "mb-3" внутри текущего toggle panel
                 mb3_elements = panel.find_all(class_='mb-3')
 
                 # Проходимся по каждому mb-3 элементу и выводим текст span и div элементов
@@ -139,7 +142,7 @@ def parse_page(url, data_pd):
                 if header not in data_pd.columns:
                     data_pd[header] = data_toggle[header]
                 else:
-                    data_pd.loc[len(data_pd)-1, header] = combined_text
+                    data_pd.loc[len(data_pd) - 1, header] = combined_text
                 combined_text = ""
                 texts_2 = []
         else:
@@ -148,6 +151,7 @@ def parse_page(url, data_pd):
         print("Error:", response.status_code)
     return data_pd
 
+
 def parse_all(df, base_url, output_file):
     #Создаем новый пустой датафрейм с колонками name link coordinates
     data_pd = pd.DataFrame({'name': [], 'link': [], 'coordinates': []})
@@ -155,12 +159,16 @@ def parse_all(df, base_url, output_file):
         well_url = base_url + guid
         data_pd = parse_page(well_url, data_pd)
     data_pd.to_csv(output_file, index=False)
+
+
 #Объединение первых 20 и всех остальных скважин
-def combine_all(file_path_1,file_path_2, csv_file_path):
+def combine_all(file_path_1, file_path_2, csv_file_path):
     df1 = pd.read_csv(file_path_1)
     df2 = pd.read_csv(file_path_2)
     result = pd.concat([df1, df2], ignore_index=True)
-    result.to_csv(csv_file_path,index= False)
+    result.to_csv(csv_file_path, index=False)
+
+
 #Преобразование координат в точки WKT
 def points(file_path, output_path):
     df = pd.read_csv(file_path)
@@ -169,7 +177,9 @@ def points(file_path, output_path):
     geometry = df.apply(lambda row: Point(row['longitude'], row['latitude']), axis=1)
     df.insert(2, 'WKT_Point', geometry.apply(lambda point: point.wkt))
     df.drop(columns=['longitude', 'latitude'], inplace=True)
-    df.to_csv(output_path, index= False)
+    df.to_csv(output_path, index=False)
+
+
 #Отображение глубины как float без м
 def depth(file_path):
     df = pd.read_csv(file_path)
@@ -177,8 +187,11 @@ def depth(file_path):
     depth_numeric = depth.str.replace(' м', '').str.replace(',', '.').astype(float)
     df['Глубина'] = depth_numeric
     df.to_csv(file_path, index=False)
+
+
 def move_number_to_front(file_path):
     df = pd.read_csv(file_path)
+
     def _move_number_to_front(s):
         # Ищем все цифры в строке
         match = re.search(r'(\d+)', s)
@@ -188,8 +201,11 @@ def move_number_to_front(file_path):
             new_string = number + '-' + re.sub(r'\s*\d+\s*', '', s).strip()
             return new_string
         return s
+
     df['name'] = df['name'].apply(_move_number_to_front)
     df.to_csv(file_path, index=False)
+
+
 def extract_organization(row):
     prefix = 'Организация, проводившая бурение: '
     if isinstance(row, str) and prefix in row:
@@ -197,17 +213,23 @@ def extract_organization(row):
         if match:
             return match.group(1).strip()
     return None
+
+
 def remove_organization_text(row):
     prefix = 'Организация, проводившая бурение: '
     if isinstance(row, str) and prefix in row:
         return re.sub(r'Организация, проводившая бурение: .*?(\n|$)', '', row).strip()
     return row
+
+
 def org_file(file_path):
     df = pd.read_csv(file_path)
     if 'Организация' not in df.columns:
         df.insert(11, 'Организация', df['Информация по бурению'].apply(extract_organization))
         df['Информация по бурению'] = df['Информация по бурению'].apply(remove_organization_text)
     df.to_csv(file_path, index=False)
+
+
 def extract_actual_horizon(row):
     prefix = 'Фактический горизонт: '
     if isinstance(row, str) and prefix in row:
@@ -215,17 +237,22 @@ def extract_actual_horizon(row):
         if match:
             return match.group(1).strip()
     return None
+
+
 def remove_actual_horizon(row):
     prefix = 'Фактический горизонт: '
     if isinstance(row, str) and prefix in row:
         return re.sub(r'Фактический горизонт: .*?(\n|$)', '', row).strip()
     return row
+
+
 def horizon_file(file_path):
     df = pd.read_csv(file_path)
     if 'Фактический горизонт' not in df.columns:
         df.insert(16, 'Фактический горизонт', df['Геологические задачи и результаты'].apply(extract_actual_horizon))
         df['Геологические задачи и результаты'] = df['Геологические задачи и результаты'].apply(remove_actual_horizon)
     df.to_csv(file_path, index=False)
+
 
 def extract_report(row):
     prefix = '; '
@@ -234,12 +261,16 @@ def extract_report(row):
         if match:
             return match.group(1).strip() + match.group(2).strip()
     return None
+
+
 def remove_report(row):
     prefix = '; '
     if isinstance(row, str) and prefix in row:
         parts = row.split(prefix, 1)
         return parts[0].strip()
     return row
+
+
 def report_file(file_path, save_path):
     df = pd.read_csv(file_path)
     if 'Отчеты' not in df.columns:
@@ -247,8 +278,50 @@ def report_file(file_path, save_path):
         df['Фактический горизонт'] = df['Фактический горизонт'].apply(remove_report)
     df.to_csv(save_path, index=False)
 
-base_url = "https://kern.vnigni.ru/well/catalog/"
-# get_HAR()
+
+def extract_testing(row):
+    prefix = 'Испытания: '
+    if isinstance(row, str) and prefix in row:
+        match = re.search(r'Испытания: (.*?)(?=\n(?:Проектный горизонт:|База отсчета глубин:))', row, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+    return None
+
+
+def remove_testing(row):
+    prefix = 'Испытания: '
+    if isinstance(row, str) and prefix in row:
+        up_row = re.sub(r'Испытания: .*?(?=\n(?:Проектный горизонт:|База отсчета глубин:))', '', row,
+                        flags=re.DOTALL).strip()
+        return re.sub(r'\n\s*\n', '\n', up_row).strip()
+    return row
+
+
+def check_oil_gas(testing_text):
+    if isinstance(testing_text, str):
+        lower_text = testing_text.lower()
+        contains_oil = 'нефт' in lower_text or 'qн' in lower_text
+        contains_gas = 'газ' in lower_text or 'qг' in lower_text
+
+        if contains_oil and contains_gas:
+            return 'нефть и газ'
+        elif contains_oil:
+            return 'нефть'
+        elif contains_gas:
+            return 'газ'
+    return None
+
+
+def testing_file(file_path, save_path):
+    df = pd.read_csv(file_path)
+    if 'Испытания' not in df.columns:
+        df.insert(18, 'Испытания', df['Геологические задачи и результаты'].apply(extract_testing))
+        df['Геологические задачи и результаты'] = df['Геологические задачи и результаты'].apply(remove_testing)
+
+    df.insert(19, 'Притоки', df['Испытания'].apply(check_oil_gas))
+    df.to_csv(save_path, index=False)
+
+
 # csv_file_path = 'csv/vnigni_guid.csv'
 # extract_text_from_har_and_save_to_csv('HAR/kern.vnigni.ru.har', csv_file_path)
 # df = pd.read_csv(csv_file_path)
@@ -262,7 +335,5 @@ base_url = "https://kern.vnigni.ru/well/catalog/"
 # df = pd.read_csv('csv/vnigni__full_points.csv')
 # org_file('csv/vnigni__full_4.csv')
 # horizon_file('csv/vnigni__full_4.csv')
-report_file('csv/vnigni__full_4.csv','csv/vnigni__full_5.csv')
-
-
-
+#report_file('csv/vnigni__full_4.csv','csv/vnigni__full_5.csv')
+testing_file('csv/vnigni__full_5.csv', 'csv/vnigni__full_6.csv')
